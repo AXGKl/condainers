@@ -244,7 +244,7 @@ unshared_install_conda_and_axc_into_it () {
     "$conda_fn" -b -p "$DIR"
     source "$DIR/etc/profile.d/conda.sh"
     show conda activate root
-    show conda create -y -n py2 python=2.7 mercurial=4.8.2
+    show conda create -q -y -n py2 python=2.7 mercurial=4.8.2
     show unshared_add_axc_into_conda
     show unshared_add_env_configs_into_conda
 }

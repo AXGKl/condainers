@@ -47,7 +47,7 @@ cat <<- EOF
 repos:
     - ubc:
         version: "master"
-        url: "https://github.com/axiros/ubc"
+        url: "https://github.com/axiros/ubc.git"
         install: "echo"
 EOF
 }
