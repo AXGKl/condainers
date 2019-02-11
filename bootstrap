@@ -186,10 +186,11 @@ fetch_axchange_creds_if_required () {
     # We will on success at least generate a .token file for later clone
     # when we have merc.
     cat "$SPECFILE" | grep "^[^#;]" | grep "\$AXCHANGE_BASE_URL" || {
-        nfo "Not required to fetch token"
-        return 0
+        test -e "${LOCAL_AXC_DIR:-}/bash" || {
+            nfo "Not required to fetch token"
+            return 0
+        }
     }
-    #test -e "${LOCAL_AXC_DIR:-}/bash" && return 0
 
     eval `cat "$fncreds"` 2>/dev/null || true
     verify_token && { nfo "axchange_token verified"; return 0; }
