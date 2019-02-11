@@ -315,6 +315,8 @@ sanity_checks () {
     test -e "${INST_DEST_DIR:-}" && die "${INST_DEST_DIR:-} exists"
     test -z "$ENVS" && die "No \$ENVS."
     test -z "$AXCHANGE_BASE_URL" && die "Set \$AXCHANGE_BASE_URL"
+    test -z "$axchange_token" && local h="No" || local h="Have"
+    nfo "$h axchange_token"
     nfo "Will install $ENVS"
     unshared_add_env_configs_into_conda testmode
 }

@@ -1,11 +1,17 @@
 #!/usr/bin/env bash
+set -eu
 
-echo 'AXCHANGE_BASE_URL="'$AXCHANGE_BASE_URL'"' >> "tests/spec1.yml"
-echo 'axchange_token="'$axchange_token'"'       >> "tests/spec1.yml"
+run_test () {
+    local spec="tests/$1"
+    echo 'AXCHANGE_BASE_URL="'$AXCHANGE_BASE_URL'"' >> "$spec"
+    echo 'axchange_token="'$axchange_token'"'       >> "$spec"
+    sudo ./bootstrap "$spec" -N
+    sudo /opt/spec1_app/axc/enter tcpflow -h
+    sudo /opt/spec1_app/axc/enter hg -h
+    sudo /opt/spec1_app/axc/enter vim --version
+}
 
-sudo ./bootstrap "tests/spec1.yml" -N 2>&1
-sudo /opt/spec1_app/axc/enter tcpflow -h
-sudo /opt/spec1_app/axc/enter hg -h
-sudo /opt/spec1_app/axc/enter vim --version
+
+run_test spec1
 
 
