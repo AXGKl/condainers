@@ -6,12 +6,14 @@ run_test () {
     echo 'AXCHANGE_BASE_URL="'$AXCHANGE_BASE_URL'"' >> "$spec"
     echo 'axchange_token="'$axchange_token'"'       >> "$spec"
     sudo ./bootstrap "$spec" -N
-    sudo /opt/spec1_app/axc/enter tcpflow -h
-    sudo /opt/spec1_app/axc/enter hg -h
-    sudo /opt/spec1_app/axc/enter vim --version
+    echo "base tools working:"
+    sudo /opt/spec1_app/axc/enter tcpflow -h || exit 1
+    sudo /opt/spec1_app/axc/enter hg -h      || exit 1
+    sudo /opt/spec1_app/axc/enter vim --version | grep '+python3' || exit 1
 }
 
 
 run_test spec1
-
+echo "Git repo checked out via hggit:"
+test -e "/opt/spec1_pp/repos/ubc__master/.hg/hgrc" || exit 1
 
