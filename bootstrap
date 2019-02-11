@@ -1,0 +1,349 @@
+#!/usr/bin/env bash
+unset CDPATH
+
+set -eu
+set -o pipefail
+
+if [ -t 1 ] ; then export termout=true; else export termout=false; fi
+
+this="$(echo $(basename "$0"))"
+here="$(cd "$(dirname "$BASH_SOURCE")" && echo $PWD)"
+
+fncreds="$HOME/.config/axc/.creds"
+
+_usage='
+## Usage
+
+    '$this' <specfile> [-t token] [<-u user> [-p password]] [-C] [-N]
+
+'
+
+_doc='
+# AXC Bootstrapping On a New Host
+
+'$_usage'
+
+## Purpose
+
+- Creates initial environ
+
+For non interactive use either provide in spec or command line:
+    - axchange_token
+    or
+    - AXCHANGE_USER and _AXCHANGE_PASSWORD
+-C prevents us from adding interactively entered creds into '$fncreds'
+'
+# can be overridden in spec:
+CONDA_VER="3-4.5.12"
+CONDA_URL="https://repo.continuum.io/miniconda/Miniconda$CONDA_VER-Linux-x86_64.sh"
+DIR="/opt/axc"
+LOCAL_AXC_DIR=
+axchange_token=
+AXCHANGE_USER=
+_AXCHANGE_PASSWORD=
+NO_ENTER=false
+
+enter_env=
+add_to_fn_creds=true
+AXC_THEME_CODE='733.3399'
+R="\e[1;38;5;124m"
+M="\e[38;5;187m"
+I="\e[38;5;46m"
+L="\e[38;5;244m"
+L2="\e[38;5;240m"
+O="\e[0m" #$;38;5;251;40m"
+test "${termout:-}x" == "x" && export termout=true
+out  () { $termout || return 0; echo -e $* >&2; }
+warn () { out "$R█ $O$*$O";                     }
+die  () { termout=true; warn "$*"; exit 1;      }
+hl   () { out "$I█ $I$*$O";                     }
+dbg  () { out "$L█ $L$*$O";                     }
+nfo  () { out "$M█ $O$*$O";                     }
+show () {
+    test $1 == "-exp" && {
+        set -a
+        shift
+        show -m "exporting: " source $*
+        local ret=$?
+        set +a
+        return $ret
+    }
+    test $1 == "-m" && {
+        shift; dbg "$*"; shift
+    } || dbg "$*"
+    run_cmd $*
+}
+
+run_cmd () {
+    $termout && echo -e "$L2"
+    local ret=0
+    $* || ret=$?
+    $termout && echo -e "$O"
+    return $ret
+}
+
+# To make set -x more usable
+export PS4='(${BASH_SOURCE}:${LINENO}): ${FUNCNAME[0]:-} : '
+
+parse_cli () {
+    shift # spec is first
+    while getopts "Ct:u:p:hN" opt; do
+        case "$opt" in
+            h) { echo -e "$_doc"; exit 0; };;
+            t) axchange_token="$OPTARG";;
+            u) AXCHANGE_USER="$OPTARG";;
+            p) _AXCHANGE_PASSWORD="$OPTARG";;
+            C) add_to_fn_creds=false
+            N) NO_ENTER=true;;
+        esac
+    done
+    shift $((OPTIND-1))
+}
+
+axc_url () {
+    echo "$AXCHANGE_BASE_URL/scm/hg/xc3/axc/#tip"
+}
+
+isroot () { [ "$UID" != "0" -o "$HOME" != "/root" ] && return 1 || return 0; }
+
+deact_any_other_current_env () {
+     test "${CONDA_SHLVL:-0}x" == "0x" && return 0
+     show source "${CONDA_PREFIX:-x}/bin/deactivate"
+     return 0
+}
+
+source_spec () {
+    SPECFILE="${1:-}"
+    test -e "$SPECFILE" || { echo "$_doc"; die "Require spec file"; }
+    set -a; show source "$SPECFILE"; set +a
+    # for conda:
+    PKGS="$PKGS bzip2 patch"
+}
+
+web_get() {
+    url="$1";u="${3:-x}"; p="${4:-x}"
+    _via_wget () { wget --http-user="$3" --http-password="$4" "$1" -O "$2"; }
+    _via_curl () { curl -u "$3:$4" "$1" > "$2";  }
+    builtin type wget 2>/dev/null && {
+        _via_wget "$url" "$2" "$u" "$p" || true; } || {
+        _via_curl "$url" "$2" "$u" "$p" || die "Could not download $1"
+    }
+}
+
+
+install_system_packages () {
+    system_pkg_install $PKGS
+}
+
+system_pkg_install () {
+    builtin type yum     2>/dev/null && yum install     -y $* && return 0
+    builtin type apt-get 2>/dev/null && apt-get install -y $* && return 0
+    die "Please Install: $I"$*"$O"
+}
+
+download_conda () {
+    conda_fn="/tmp/`basename "$CONDA_URL"`"
+    test -e "$conda_fn" && { nfo "Already local: $conda_fn"; return 0; }
+    web_get "$CONDA_URL"  "$conda_fn"
+}
+
+copy_dir () { (cd "$1" && tar -cf - .) | (cd "$2" && tar -xpf -); }
+
+install_conda () {
+    # we make the folder clear to install:
+    unshare -m ls /tmp >/dev/null || die "Required: unshare -m"
+    md="`mktemp -t axc_install_dir_XXXXXXXX -d`"
+    test -z "$LOCAL_AXC_DIR"  && {
+        cp "$here/.token" "$md/"
+    }
+    cp "$SPECFILE" "$md/SPEC"
+    # calling ourselves with unshared_install_conda:
+    show unshare -m "$here/$this" unshared_install_conda "$DIR" "$conda_fn" "$md"
+    show mv "$md/`basename "$DIR"`"  "$INST_DEST_DIR"
+    show cp "$SPECFILE" "$INST_DEST_DIR/settings"
+}
+
+verify_token () {
+    test -z "$axchange_token" && {
+        export axchange_token="`cat $here/.token`"
+        test -z "$axchange_token" && return 1
+    }
+    local AX="$AXCHANGE_BASE_URL/accounts/auth_request/verify"
+    rm -f "$here/.lifetime"
+    web_get "$AX/$axchange_token" "$here/.lifetime"
+    local lt="`cat "$here/.lifetime"`"
+    rm -f "$here/.lifetime"
+    test -z "$lt" && return 1
+    echo "$axchange_token" > "$here/.token"
+    export axchange_token
+}
+
+fetch_axchange_creds_if_required () {
+    # If we can't use a local clone we have to fetch - with creds required.
+    # We will on success at least generate a .token file for later clone
+    # when we have merc.
+    cat "$SPECFILE" | grep "^[^#;]" | grep "\$AXCHANGE_BASE_URL" || {
+        nfo "Not required to fetch token"
+        return 0
+    }
+    #test -e "${LOCAL_AXC_DIR:-}/bash" && return 0
+
+    eval `cat "$fncreds"` 2>/dev/null || true
+    verify_token && return 0
+    test -z "$AXCHANGE_USER" && {
+        read -p ">>> AXCHANGE_USER? " AXCHANGE_USER
+    }
+    test -z "$_AXCHANGE_PASSWORD" && {
+        read -p ">>> _AXCHANGE_PASSWORD? " _AXCHANGE_PASSWORD
+    }
+    local AX="$AXCHANGE_BASE_URL/accounts/auth_request"
+    rm -f "$here/.token"
+    web_get "$AX/token" "$here/.token" "$AXCHANGE_USER" "$_AXCHANGE_PASSWORD"
+    test -e "$here/.token" || die "Failed to get token"
+    export axchange_token="`cat "$here/.token"`"
+
+    $add_to_fn_creds || return 0
+    mkdir -p "`dirname "$fncreds"`"
+    touch "$fncreds"
+    cat "$fncreds" | \
+              grep "AXCHANGE_USER" | \
+              grep "$AXCHANGE_USER" >/dev/null || {
+        nfo "Adding user into "$fncreds""
+        echo "AXCHANGE_USER=\"$AXCHANGE_USER\"" >> "$fncreds"
+    }
+    cat "$fncreds" | grep "_AXCHANGE_PASSWORD" |\
+        grep ''$_AXCHANGE_PASSWORD'' >/dev/null || {
+        nfo "Adding password into "$fncreds""
+        echo "_AXCHANGE_PASSWORD=\"$_AXCHANGE_PASSWORD\"" >> "$fncreds"
+    }
+
+}
+
+bootstrap_inside () {
+    hl "Building inside"
+    show "$INST_DEST_DIR/axc/enter "$DIR/axc/bin/\#build""
+    $NO_ENTER && exit
+    echo
+    hl "Entering the built axc environment. Have fun."
+    show "$INST_DEST_DIR/axc/enter"
+}
+
+# ---------------------------------------------------------------- Run unshared
+unshared_install_conda_and_axc_into_it () {
+    DIR="$1"
+    conda_fn="$2"
+    d_into="$3"
+    d="`dirname "$DIR"`"
+    test -e "$d" || mkdir -p "$d"
+    show mount -o bind "$d_into" "$d"
+    chmod +x "$conda_fn"
+    "$conda_fn" -b -p "$DIR"
+    source "$DIR/etc/profile.d/conda.sh"
+    show conda activate root
+    show conda create -y -n py2 python=2.7 mercurial=4.8.2
+    show unshared_add_axc_into_conda
+    show unshared_add_env_configs_into_conda
+}
+
+unshared_add_axc_into_conda () {
+    # source also for env installs:
+    test -z "$axchange_token" && \
+    export axchange_token="`cat "$d_into/.token"`" || true
+
+    test -e "${LOCAL_AXC_DIR:-}/bash" && {
+        mkdir "$DIR/axc"
+        show copy_dir "$LOCAL_AXC_DIR" "$DIR/axc"
+        return $?
+    }
+
+    show conda activate py2
+    show cd "$DIR"
+    local ret=0
+    show hg_clone "`axc_url`"
+}
+
+unshared_add_env_configs_into_conda () {
+    testmode=false
+    test "${1:-}x" == "testmodex" && testmode=true
+    $testmode || mkdir -p "$DIR/conf"
+    IFS=' '; for _env in $ENVS; do
+        nfo "Installing $I$_env$O"
+        defi="${!_env:-}"
+        test -z "$defi" && {
+            local rec="`${_env}_environment`"
+            test -z "$rec" && die "Env not defined: $_env"
+            $testmode && continue
+            nfo "$_env defined inline"
+            local d="$DIR/conf/$_env/recipe"
+            mkdir -p "$d"
+            echo -e "$rec" > "$d/environment.yml"
+            rec=
+            rec="`${_env}_repos`" || true
+            test -z "$rec" || {
+                nfo "$_env has repos inline"
+                echo -e "$rec" > "$d/repos.yml"
+            }
+            continue
+        }
+        $testmode && continue
+        show hg_clone "$defi" "$DIR/conf/$_env"
+    done
+}
+
+
+hg_clone () {
+    local md="`mktemp -t axc_install_hg_home_dir_XXXXXXXX -d`"
+    local h="$HOME"
+    export HOME="$md"
+    echo -e '
+[auth]
+top.prefix = '$AXCHANGE_BASE_URL'
+top.username = $axchange_token
+top.password = AXC
+' > "$md/.hgrc"
+    local ret=0
+    show hg clone $* || ret=$?
+    export HOME="$h"
+    return $ret
+}
+
+sanity_checks () {
+    test -e "${INST_DEST_DIR:-}" && die "${INST_DEST_DIR:-} exists"
+    test -z "$ENVS" && die "No \$ENVS."
+    nfo "Will install $ENVS"
+    unshared_add_env_configs_into_conda testmode
+}
+
+
+cleanup () {
+    # temporay files
+    rm -f "/tmp/axc_env.$$.txt"
+    rm -f "/tmp/axc_env.$$.yml"
+    echo -e "\e[0m"
+}
+trap cleanup EXIT
+
+
+main () {
+    deact_any_other_current_env
+
+    test "x ${1:-}" == "x unshared_install_conda"  && {
+        d_inst_tmp="$4"
+        show source_spec "$d_inst_tmp/SPEC"
+        shift
+        show unshared_install_conda_and_axc_into_it "$@"
+        exit $?
+    }
+
+    show source_spec "$@"
+    parse_cli "$@"
+    show install_system_packages
+    sanity_checks
+    fetch_axchange_creds_if_required
+    show download_conda
+    show install_conda
+    show bootstrap_inside
+}
+
+main $*
+

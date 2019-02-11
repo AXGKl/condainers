@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# CONDA_VER="3-4.5.12"
+# CONDA_URL="https://repo.continuum.io/miniconda/Miniconda$CONDA_VER-Linux-x86_64.sh"
+# DIR="/opt/axc"
+# AXCHANGE_BASE_URL="..."
+# AXC_URL="$AXCHANGE_BASE_URL/scm/hg/xc3/axc/#tip"
+# LOCAL_AXC_DIR=
+
+INST_DEST_DIR="/opt/spec1_app"
+
+# both space separated:
+PKGS="gcc "
+ENVS="dashboard"
+
+
+function dashboard_environment()
+{
+cat <<- EOF
+name: dashboard
+channels:
+  - "{AXCHANGE_BASE_URL}/pub/conda_axchange/channel"
+  - defaults
+dependencies:
+  - asn1crypto=0.24.0=py37_0
+  - backcall=0.1.0=py37_0
+  - beautifulsoup4=4.6.3=py37_0
+  - ca-certificates=2018.03.07=0
+  - certifi=2018.11.29=py37_0
+  - cffi=1.11.5=py37he75722e_1
+  - chardet=3.0.4=py37_1
+  - conda=4.5.12=py37_0
+  - conda-build=3.14.4=py37_0
+  - conda-env=2.6.0=1
+  - cryptography=2.4.2=py37h1ba5d50_0
+  - decorator=4.3.0=py37_0
+  - zlib=1.2.11=ha838bed_2
+  - pip:
+    - absl-py==0.6.1
+prefix: "{DIR}"
+EOF
+}
+
+
+
+
+
+
+
+
