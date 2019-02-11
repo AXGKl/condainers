@@ -167,7 +167,6 @@ install_conda () {
 }
 
 verify_token () {
-    set -x
     test -z "$axchange_token" && {
         export axchange_token="`cat $here/.token`"
         test -z "$axchange_token" && return 1
@@ -177,10 +176,9 @@ verify_token () {
     web_get "$AX/$axchange_token" "$here/.lifetime"
     local lt="`cat "$here/.lifetime"`"
     rm -f "$here/.lifetime"
-    test -z "$lt" && return 1
+    test -z "$lt" && { warn "verification failed"; return 1; }
     echo "$axchange_token" > "$here/.token"
     export axchange_token
-    set +x
 }
 
 fetch_axchange_creds_if_required () {
