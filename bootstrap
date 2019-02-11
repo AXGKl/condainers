@@ -63,7 +63,7 @@ hl   () { out "$I█ $I$*$O";                     }
 dbg  () { out "$L█ $L$*$O";                     }
 nfo  () { out "$M█ $O$*$O";                     }
 show () {
-    test $1 == "-exp" && {
+    test "${1:-}x" == "-expx" && {
         set -a
         shift
         show -m "exporting: " source $*
@@ -71,7 +71,7 @@ show () {
         set +a
         return $ret
     }
-    test $1 == "-m" && {
+    test "${1:-}x" == "-mx" && {
         shift; dbg "$*"; shift
     } || dbg "$*"
     run_cmd $*

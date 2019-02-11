@@ -41,6 +41,16 @@ EOF
 }
 
 
+function dashboard_repos()
+{
+cat <<- EOF
+repos:
+    - ubc:
+        version: "master"
+        url: "https://github.com/axiros/ubc"
+        install: "echo"
+EOF
+}
 
 
 
