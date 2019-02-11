@@ -167,6 +167,7 @@ install_conda () {
 }
 
 verify_token () {
+    set -x
     test -z "$axchange_token" && {
         export axchange_token="`cat $here/.token`"
         test -z "$axchange_token" && return 1
@@ -179,6 +180,7 @@ verify_token () {
     test -z "$lt" && return 1
     echo "$axchange_token" > "$here/.token"
     export axchange_token
+    set +x
 }
 
 fetch_axchange_creds_if_required () {
@@ -316,6 +318,7 @@ sanity_checks () {
     test -z "$ENVS" && die "No \$ENVS."
     test -z "$AXCHANGE_BASE_URL" && die "Set \$AXCHANGE_BASE_URL"
     test -z "$axchange_token" && local h="No" || local h="Have"
+    test -z "$axchange_token" || echo "$axchange_token" > "$here/.token"
     nfo "$h axchange_token"
     nfo "Will install $ENVS"
     unshared_add_env_configs_into_conda testmode
