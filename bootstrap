@@ -93,7 +93,7 @@ parse_cli () {
             t) axchange_token="$OPTARG";;
             u) AXCHANGE_USER="$OPTARG";;
             p) _AXCHANGE_PASSWORD="$OPTARG";;
-            C) add_to_fn_creds=false
+            C) add_to_fn_creds=false;;
             N) NO_ENTER=true;;
         esac
     done
