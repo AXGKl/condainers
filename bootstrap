@@ -52,8 +52,11 @@ I="\e[38;5;46m"
 L="\e[38;5;244m"
 L2="\e[38;5;240m"
 O="\e[0m" #$;38;5;251;40m"
-test "${termout:-}x" == "x" && export termout=true
-out  () { $termout || return 0; echo -e $* >&2; }
+
+
+$termout || { R=; M=; I=; L=; L2=; O=; }
+
+out  () { echo -e $* >&2;                       }
 warn () { out "$R█ $O$*$O";                     }
 die  () { termout=true; warn "$*"; exit 1;      }
 hl   () { out "$I█ $I$*$O";                     }

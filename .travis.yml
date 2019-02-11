@@ -1,7 +1,5 @@
 dist: xenial
-language: python
-python:
-- 3.6
+language: generic
 before_script:
 - echo 'starting'
 script: sudo tests/test_all.sh
