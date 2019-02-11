@@ -310,6 +310,7 @@ top.password = AXC
 sanity_checks () {
     test -e "${INST_DEST_DIR:-}" && die "${INST_DEST_DIR:-} exists"
     test -z "$ENVS" && die "No \$ENVS."
+    test -z "$AXCHANGE_BASE_URL" && die "Set \$AXCHANGE_BASE_URL"
     nfo "Will install $ENVS"
     unshared_add_env_configs_into_conda testmode
 }
